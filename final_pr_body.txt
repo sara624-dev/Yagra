@@ -1,0 +1,34 @@
+## 概要
+
+同一ハンドラー名（例: "llm"）を持つ複数ノードが異なるゴールデンデータを持つ場合に、最初に登録されたモックが全ノードで共有されてしまうバグを修正しました。
+
+## 修正内容
+
+### 1. NodeRegistryPort に resolve_for_node メソッドを追加
+ノードIDを考慮したハンドラー解決メソッドを非抽象メソッドとして追加。デフォルト実装は resolve(handler_name) に委譲するため、既存実装との後方互換を維持しています。
+
+### 2. build_state_graph の解決呼び出しを変更
+```python
+handler = registry.resolve_for_node(node.handler, node.id)
+```
+
+### 3. build_golden_registry をノード ID ベースに書き換え
+_FallbackNodeRegistry を _GoldenNodeRegistry に置き換え、resolve_for_node をオーバーライドしてノード ID + ハンドラー名の一致によるディスパッチを実装しました。
+
+## 変更ファイル一覧
+| ファイル | 変更内容 |
+| --- | --- |
+| src/yagra/ports/outbound/node_registry.py | resolve_for_node メソッド追加 |
+| src/yagra/application/use_cases/state_graph_builder.py | resolve -> resolve_for_node に変更 |
+| src/yagra/application/use_cases/golden_test_runner.py | build_golden_registry 書き換え |
+| tests/unit/application/test_golden_test_runner.py | テストケース追加 |
+| tests/integration/test_golden_test_e2e.py | E2E テスト追加 |
+
+## 検証結果
+- uv run pytest — 全件パス ✅
+- uv run ruff check — クリア ✅
+- uv run mypy src tests — クリア ✅
+
+## 関連情報
+- 関連ゴール: G-20（ゴールデンテスト）
+- 関連マイルストーン: M-53
